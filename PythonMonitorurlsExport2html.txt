@@ -1,0 +1,136 @@
+from bs4 import BeautifulSoup
+import requests
+import pyautogui
+import time
+import pyperclip
+from pynput import mouse
+import tkinter as tk
+from tkinter import filedialog
+from datetime import datetime
+from tkinter import messagebox
+ 
+# Função para iniciar a captura de URLs
+def iniciar_captura():
+    listener.start()
+    btn_exportar_urls.configure(state="disabled")
+    btn_iniciar_captura.configure(state="disabled", relief=tk.SUNKEN)  # Botão destacado
+    btn_parar_captura.configure(state="normal", relief=tk.RAISED)  # Botão não destacado
+ 
+# Função para parar a captura de URLs
+def parar_captura():
+    listener.stop()
+    btn_exportar_urls.configure(state="normal")
+    btn_iniciar_captura.configure(state="normal", relief=tk.RAISED)  # Botão não destacado
+    btn_parar_captura.configure(state="disabled", relief=tk.SUNKEN)  # Botão destacado
+ 
+# Função para obter o título da página
+def get_page_title(url):
+    try:
+        res = requests.get(url)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        title = soup.title.string
+        return title
+    except Exception as e:
+        print(e)
+        return "Título não disponível"
+ 
+# Função para lidar com o clique do mouse
+def on_click(x, y, button, pressed):
+    if button == mouse.Button.right and pressed:
+        # Copiar o endereço da web para a área de transferência
+        pyautogui.hotkey('ctrl', 'l')  # Selecionar a barra de endereço
+        pyautogui.hotkey('ctrl', 'c')  # Copiar o endereço para a área de transferência
+        url = pyperclip.paste()  # Obter o endereço da web da área de transferência
+        agora = datetime.now()  # Obter a data e hora atual
+        title = get_page_title(url)  # Obter o título da página
+        captured_urls.insert(0, (url, agora, title))  # Adicionar a URL capturada à lista
+        text_area.insert(tk.END, f"A URL '{url}' foi copiada para a área de transferência.\n")
+        window.after(2000, clear_message)  # Limpar a mensagem após 2 segundos
+ 
+# Função para exportar as URLs capturadas
+def exportar_urls():
+    output_file_path = filedialog.asksaveasfilename(defaultextension='.html', filetypes=[('Arquivo HTML', '*.html')])
+    if output_file_path:
+        with open(output_file_path, 'w') as file:
+            file.write('<html>\n<head>\n<title>URLs Capturadas</title>\n</head>\n<body>\n<h1>URLs Capturadas</h1>\n')
+            for url, agora, title in captured_urls:
+                file.write(f"<p>{agora.strftime('%Y-%m-%d %H:%M:%S')} - <a href='{url}'>{title}</a></p>\n")
+            file.write('</body>\n</html>')
+        print("As URLs capturadas foram exportadas para o arquivo:", output_file_path)
+ 
+# Função para limpar a mensagem após 2 segundos
+def clear_message():
+    text_area.delete(1.0, tk.END)
+ 
+# Função para exibir as instruções de uso
+def mostrar_como_usar():
+    instrucoes = """\
+    Clique em 'Iniciar Captura' para monitorar as URLs visitadas.
+    Quando quiser salvar uma URL, clique com o botão direito do mouse na barra de endereços,
+    e a URL será copiada para a área de transferência do computador. Repita esse procedimento
+    para capturar quantas URLs desejar. Ao final clique em Finalizar Captura. Por último clique em 'Exportar URLs' para gerar
+    uma lista com os links em um arquivo HTML, incluindo a data e hora de acesso de cada link.
+    """
+    messagebox.showinfo("Como Usar", instrucoes)
+ 
+# Função para exibir a mensagem 'Sobre'
+def mostrar_sobre():
+    sobre_mensagem = "2023, Mizuno"
+    messagebox.showinfo("Sobre", sobre_mensagem)
+ 
+# Inicialização da interface gráfica
+window = tk.Tk()
+window.title("Monitora URLs")
+window.geometry("600x400")
+window.resizable(False, False)
+ 
+# Área de texto para exibir as mensagens
+text_area = tk.Text(window, height=6, font=("Courier New", 12))
+text_area.pack(side="bottom", padx=20, pady=20)
+ 
+# Frame para agrupar os botões
+frame_botoes = tk.Frame(window)
+frame_botoes.pack(side="bottom", padx=20, pady=10)
+ 
+# Botão para iniciar a captura de URLs
+btn_iniciar_captura = tk.Button(frame_botoes, text="Iniciar Captura", command=iniciar_captura, font=("Arial", 12), width=15)
+btn_iniciar_captura.pack(pady=10)
+ 
+# Botão para parar a captura de URLs
+btn_parar_captura = tk.Button(frame_botoes, text="Parar Captura", command=parar_captura, state="disabled", font=("Arial", 12), width=15)
+btn_parar_captura.pack(pady=10)
+ 
+# Botão para exportar as URLs capturadas
+btn_exportar_urls = tk.Button(frame_botoes, text="Exportar URLs", command=exportar_urls, font=("Arial", 12), width=15)
+btn_exportar_urls.pack(pady=10)
+ 
+# Menu
+menu_bar = tk.Menu(window)
+ 
+ajuda_menu = tk.Menu(menu_bar, tearoff=0)
+ajuda_menu.add_command(label="Como Usar o Programa", command=mostrar_como_usar)
+ajuda_menu.add_command(label="Sobre", command=mostrar_sobre)
+ 
+menu_bar.add_cascade(label="Menu", menu=ajuda_menu)
+ 
+window.config(menu=menu_bar)
+ 
+# Centralizar a janela na tela
+window.update_idletasks()
+window_width = window.winfo_width()
+window_height = window.winfo_height()
+screen_width = window.winfo_screenwidth()
+screen_height = window.winfo_screenheight()
+x = (screen_width // 2) - (window_width // 2)
+y = (screen_height // 2) - (window_height // 2)
+window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+ 
+# Lista para armazenar as URLs capturadas
+captured_urls = []
+ 
+# Criar um listener para o clique do mouse
+listener = mouse.Listener(on_click=on_click)
+ 
+# Executar a interface gráfica
+window.mainloop()
+ 
