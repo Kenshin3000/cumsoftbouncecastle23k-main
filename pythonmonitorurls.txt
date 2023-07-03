@@ -1,0 +1,105 @@
+import tkinter as tk
+from tkinter import ttk
+import threading
+import time
+import webbrowser
+from selenium import webdriver
+ 
+class URLMonitor(threading.Thread):
+    def __init__(self, treeview, driver):
+        threading.Thread.__init__(self)
+        self.treeview = treeview
+        self.driver = driver
+        self.running = True
+        self.last_url = ""
+ 
+    def run(self):
+        while self.running:
+            try:
+                # Obtenha a URL atual
+                url = self.driver.current_url
+                # Obtenha o título da página atual
+                page_title = self.driver.title
+ 
+                if url != self.last_url:
+                    # Adicione a URL e o título à treeview
+                    self.treeview.insert("", "end", values=(url, page_title))
+                    self.last_url = url
+            except Exception as e:
+                print(f"Erro ao capturar URL: {e}")
+ 
+            time.sleep(1)
+ 
+    def stop(self):
+        self.running = False
+ 
+ 
+def save_titles(treeview):
+    try:
+        with open("titles.html", "w") as file:
+            file.write("<html>\n")
+            file.write("<body>\n")
+ 
+            items = treeview.get_children()
+            for item in items:
+                values = treeview.item(item)["values"]
+                if "URL Monitor" not in values[1] and "Nova guia - Google Chrome" not in values[1]:
+                    title = values[1]
+                    url = values[0]
+                    file.write(f'<a href="{url}">{title}</a><br>\n')
+ 
+            file.write("</body>\n")
+            file.write("</html>\n")
+        print("Títulos exportados com sucesso.")
+    except Exception as e:
+        print(f"Erro ao exportar títulos: {e}")
+ 
+ 
+ 
+ 
+def open_browser(event, treeview, driver):
+    item = treeview.selection()[0]
+    url = treeview.item(item)["values"][0]
+    webbrowser.open(url)
+ 
+ 
+def main():
+    # Configurar janela
+    root = tk.Tk()
+    root.title("URL Monitor")
+    root.geometry("500x400")
+ 
+    # Configurar Treeview
+    treeview = ttk.Treeview(root)
+    treeview["columns"] = ("URL", "Page Title")
+    treeview.heading("URL", text="URL")
+    treeview.heading("Page Title", text="Page Title")
+    treeview.pack(expand=True, fill=tk.BOTH)
+ 
+    # Configurar Selenium WebDriver
+    driver = webdriver.Chrome()  # Adapte para o driver que você estiver usando
+ 
+    # Configurar URL Monitor
+    monitor = URLMonitor(treeview, driver)
+    monitor.start()
+ 
+    def on_closing():
+        monitor.stop()
+        driver.quit()
+        root.destroy()
+ 
+    def export_titles():
+        save_titles(treeview)
+ 
+    export_button = ttk.Button(root, text="Exportar", command=export_titles)
+    export_button.pack()
+ 
+    treeview.bind("<Double-1>", lambda event: open_browser(event, treeview, driver))
+ 
+    root.protocol("WM_DELETE_WINDOW", on_closing)
+    root.mainloop()
+ 
+ 
+if __name__ == "__main__":
+    main()
+ 
